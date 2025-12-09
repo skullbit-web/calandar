@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimalist Calendar</title>
+    <!-- Use the system font for an Apple-like look -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Supabase CDN for the client library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="light-mode">
+    <div class="calendar-container">
+        <!-- Header for navigation and mode switch -->
+        <header>
+            <div class="month-nav-group">
+                <button id="prev-month" aria-label="Previous Month">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                </button>
+                <h2 id="current-month-year"></h2>
+                <button id="next-month" aria-label="Next Month">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+            </div>
+            <button id="theme-toggle" aria-label="Toggle Theme"> ☀️</button>
+        </header>
+
+        <!-- Day Names -->
+        <div class="weekdays">
+            <span>SUN</span><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span>
+        </div>
+
+        <!-- Calendar Grid -->
+        <div id="calendar-grid" class="calendar-grid">
+            <!-- Days will be inserted here by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Event Modal (Hidden by default) -->
+    <div id="event-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" aria-label="Close Modal">&times;</span>
+            <h3>Add New Event</h3>
+            <input type="date" id="event-date" required>
+            <input type="text" id="event-title" placeholder="Event Title" required>
+            <button id="save-event-button">Save Event</button>
+        </div>
+    </div>
+
+    <script>
+        // Use a generic function name to match the external file structure
+        function createClient(url, key) {
+            // Placeholder for the actual Supabase client initialization
+            if (typeof supabase !== 'undefined' && supabase.createClient) {
+                return supabase.createClient(url, key);
+            } else {
+                console.error("Supabase client library not loaded.");
+                return { from: () => ({ select: () => ({ eq: () => ({ gte: () => ({ lte: () => ({ data: [], error: null }) }) }) }), insert: () => ({ error: null }) }) };
+            }
+        }
+    </script>
+    <script src="app.js"></script>
+</body>
+</html>
