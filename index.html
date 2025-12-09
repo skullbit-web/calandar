@@ -1,64 +1,595 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minimalist Calendar</title>
-    <!-- Use the system font for an Apple-like look -->
-    <link rel="stylesheet" href="style.css">
-    <!-- Supabase CDN for the client library -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Minimal Apple-like Calendar</title>
+  <style>
+    :root{
+      --bg:#f6f7fb;
+      --card:#ffffff;
+      --muted:#9aa0b4;
+      --accent:#0a84ff;
+      --accent-2:#ff375f;
+      --text:#0b1226;
+      --glass: rgba(255,255,255,0.7);
+    }
+    body{
+      margin:0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(180deg, var(--bg), #eef2f7 120%);
+      color:var(--text);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:28px;
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
+      min-height:100vh;
+    }
+
+    .calendar-shell{
+      width:980px;
+      max-width:96vw;
+      background:var(--card);
+      border-radius:18px;
+      box-shadow: 0 8px 28px rgba(18,23,40,0.08);
+      padding:18px;
+      display:grid;
+      grid-template-columns: 1fr 280px;
+      gap:18px;
+      align-items:start;
+    }
+
+    /* Header / Controls */
+    .controls{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .title{
+      font-weight:600;
+      font-size:20px;
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .month-nav{
+      display:flex;
+      gap:8px;
+      margin-left:auto;
+      align-items:center;
+    }
+
+    .btn{
+      background:transparent;
+      border:0;
+      border-radius:8px;
+      padding:8px;
+      cursor:pointer;
+      font-size:16px;
+      transition:background .12s ease;
+    }
+    .btn:hover{ background: rgba(10, 10, 10, 0.04) }
+
+    button#prev-month, button#next-month{
+      width:42px; height:42px;
+      display:inline-grid;
+      place-items:center;
+      border-radius:10px;
+      font-size:18px;
+      color:var(--muted);
+    }
+
+    #current-month-year{
+      font-weight:600;
+      font-size:18px;
+      padding:6px 12px;
+      border-radius:10px;
+      display:inline-block;
+      min-width:160px;
+      text-align:center;
+      background: linear-gradient(180deg, rgba(245,246,249,0.6), rgba(240,243,248,0.6));
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,0.02);
+    }
+
+    /* Calendar grid */
+    .calendar-main{
+      background:linear-gradient(180deg, rgba(250,251,253,0.6), rgba(246,247,250,0.6));
+      padding:12px;
+      border-radius:12px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+    }
+
+    .dow-row{
+      display:grid;
+      grid-template-columns: repeat(7,1fr);
+      gap:6px;
+      margin-bottom:8px;
+      color:var(--muted);
+      font-size:13px;
+      text-transform:uppercase;
+      letter-spacing:0.06em;
+    }
+
+    #calendar-grid{
+      display:grid;
+      grid-template-columns: repeat(7,1fr);
+      gap:8px;
+    }
+
+    .day-cell{
+      min-height:86px;
+      background:transparent;
+      border-radius:10px;
+      padding:8px;
+      box-sizing:border-box;
+      position:relative;
+      cursor:pointer;
+      transition:transform .06s ease, background .06s ease;
+      display:flex;
+      flex-direction:column;
+      justify-content:flex-start;
+      align-items:flex-start;
+    }
+    .day-cell:hover{ transform:translateY(-4px); background: rgba(255,255,255,0.65); box-shadow: 0 6px 14px rgba(16,24,40,0.06) }
+
+    .prev-next-month { opacity:0.38; }
+
+    .day-number{
+      font-weight:600;
+      font-size:14px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:34px;
+      height:34px;
+      border-radius:50%;
+    }
+
+    .current-day-circle{
+      background:linear-gradient(180deg,var(--accent), #1e6fff);
+      color:white;
+      box-shadow: 0 6px 20px rgba(10,132,255,0.14);
+    }
+
+    .event-marker{
+      position:absolute;
+      right:8px;
+      bottom:8px;
+      width:10px;height:10px;border-radius:50%;
+      background:var(--accent);
+      box-shadow: 0 2px 6px rgba(10,132,255,0.14);
+    }
+
+    /* Sidebar: Event list */
+    .sidebar{
+      background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(250,250,252,0.6));
+      border-radius:12px;
+      padding:14px;
+      min-height:300px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .sidebar h3{ margin:0; font-size:15px; font-weight:700; color:var(--muted) }
+    .events-list{ display:flex; flex-direction:column; gap:8px; overflow:auto; max-height:520px; padding-right:4px }
+    .event-item{
+      background:rgba(10,132,255,0.06);
+      border-radius:10px; padding:10px; font-size:14px; font-weight:600;
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .event-date-sm{ font-size:13px; color:var(--muted); font-weight:500 }
+
+    /* Modal */
+    .modal{
+      position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+      background: rgba(10,12,20,0.28); z-index:50;
+    }
+    .modal-card{
+      width:420px; max-width:94vw; background:var(--card); border-radius:12px; padding:14px;
+      box-shadow: 0 20px 50px rgba(12,18,30,0.18);
+      display:flex; flex-direction:column; gap:12px;
+    }
+    .modal-header{ display:flex; align-items:center; justify-content:space-between; }
+    .close-button{ border:0; background:transparent; font-size:20px; cursor:pointer; color:var(--muted) }
+
+    .form-row{ display:flex; flex-direction:column; gap:6px; }
+    label{ font-size:13px; color:var(--muted); font-weight:600 }
+    input[type="text"], input[type="date"]{
+      padding:8px 10px; border-radius:8px; border:1px solid rgba(10,12,20,0.06); font-size:15px; outline:none;
+      background:linear-gradient(180deg, rgba(250,250,252,0.6), rgba(246,247,250,0.6));
+    }
+    .modal-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:6px; }
+    .primary{
+      background:var(--accent); color:white; padding:8px 12px; border-radius:8px; border:0; cursor:pointer; font-weight:700;
+    }
+    .secondary{ background:transparent; border:0; color:var(--muted); padding:8px; border-radius:8px; cursor:pointer; }
+
+    /* Dark mode */
+    body.dark-mode{
+      --bg:#0b1220;
+      --card:#0f1720;
+      --muted:#9aa6b2;
+      --accent:#0a84ff;
+      --accent-2:#ff6b81;
+      --text:#e8eef9;
+      background:linear-gradient(180deg,#071122,#071424 120%);
+      color:var(--text);
+    }
+    body.dark-mode .calendar-shell{ box-shadow: 0 10px 40px rgba(3,5,10,0.6) }
+    body.dark-mode .modal{ background: rgba(2,6,12,0.6) }
+
+    /* Responsive */
+    @media (max-width:900px){
+      .calendar-shell{ grid-template-columns: 1fr; }
+      .sidebar{ order:2 }
+    }
+  </style>
 </head>
-<body class="light-mode">
-    <div class="calendar-container">
-        <!-- Header for navigation and mode switch -->
-        <header>
-            <div class="month-nav-group">
-                <button id="prev-month" aria-label="Previous Month">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                </button>
-                <h2 id="current-month-year"></h2>
-                <button id="next-month" aria-label="Next Month">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                </button>
-            </div>
-            <button id="theme-toggle" aria-label="Toggle Theme"> ☀️</button>
-        </header>
-
-        <!-- Day Names -->
-        <div class="weekdays">
-            <span>SUN</span><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span>
+<body>
+  <div class="calendar-shell" role="application" aria-label="Calendar">
+    <div>
+      <div class="controls" aria-hidden="false">
+        <div class="title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="2" y="4" width="20" height="18" rx="3" stroke="#0b1226" stroke-width="1.2" fill="#0b1226" />
+          </svg>
+          <div style="display:flex;flex-direction:column;line-height:1;">
+            <div style="font-weight:700;font-size:14px">Calendar</div>
+            <div style="font-size:12px;color:var(--muted);">Minimal • Supabase saving</div>
+          </div>
         </div>
 
-        <!-- Calendar Grid -->
-        <div id="calendar-grid" class="calendar-grid">
-            <!-- Days will be inserted here by JavaScript -->
+        <div class="month-nav" style="margin-left:auto;">
+          <button id="prev-month" class="btn" aria-label="Previous month">‹</button>
+          <div id="current-month-year" aria-live="polite">Loading...</div>
+          <button id="next-month" class="btn" aria-label="Next month">›</button>
+
+          <button id="theme-toggle" class="btn" title="Toggle theme"> ☀️</button>
         </div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="calendar-main" role="grid" aria-label="Month view">
+        <div class="dow-row" aria-hidden="true">
+          <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+        </div>
+
+        <div id="calendar-grid" aria-live="polite">
+          <!-- Calendar days will be injected here by app.js -->
+        </div>
+      </div>
     </div>
 
-    <!-- Event Modal (Hidden by default) -->
-    <div id="event-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-button" aria-label="Close Modal">&times;</span>
-            <h3>Add New Event</h3>
-            <input type="date" id="event-date" required>
-            <input type="text" id="event-title" placeholder="Event Title" required>
-            <button id="save-event-button">Save Event</button>
-        </div>
-    </div>
+    <aside class="sidebar" aria-label="Events">
+      <h3>Events this month</h3>
+      <div id="events-list" class="events-list" role="list">
+        <!-- events (fetched from Supabase) will be displayed here via JS -->
+      </div>
+      <div style="margin-top:auto; display:flex; gap:6px; align-items:center;">
+        <button id="add-today" class="primary" title="Add an event for today">Add Today</button>
+        <button id="open-modal" class="secondary">New Event</button>
+      </div>
+    </aside>
+  </div>
 
-    <script>
-        // Use a generic function name to match the external file structure
-        function createClient(url, key) {
-            // Placeholder for the actual Supabase client initialization
-            if (typeof supabase !== 'undefined' && supabase.createClient) {
-                return supabase.createClient(url, key);
-            } else {
-                console.error("Supabase client library not loaded.");
-                return { from: () => ({ select: () => ({ eq: () => ({ gte: () => ({ lte: () => ({ data: [], error: null }) }) }) }), insert: () => ({ error: null }) }) };
-            }
+  <!-- Modal (hidden by default) -->
+  <div id="event-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div style="font-weight:800">Create Event</div>
+        <button class="close-button" aria-label="Close modal">✕</button>
+      </div>
+
+      <div class="form-row">
+        <label for="event-date">Date</label>
+        <input id="event-date" type="date" />
+      </div>
+
+      <div class="form-row">
+        <label for="event-title">Title</label>
+        <input id="event-title" type="text" placeholder="Event title" />
+      </div>
+
+      <div class="modal-actions">
+        <button class="secondary" onclick="toggleModal(false)">Cancel</button>
+        <button id="save-event-button" class="primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supabase client (ESM) and app logic -->
+  <script type="module">
+    /* Import supabase createClient from CDN (ESM). If your environment requires a different import,
+       replace the import path with your project's bundler or local copy. */
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    // -------------------------
+    // === BEGIN user-provided app.js ===
+    // (kept essentially identical to your provided code; IDs in HTML match exactly)
+    // 🚨 IMPORTANT: Replace with your actual Supabase URL and Public Key
+    const SUPABASE_URL = 'https://shlsaexhidyutqtdbowa.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNobHNhZXhoaWR5dXRxdGRib3dhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzMDUzODgsImV4cCI6MjA4MDg4MTM4OH0.2sjUQSY4mJBb_2NKXNziAHw5vPNcxEv3WsF8Fz7dIak';
+
+    // Initialize Supabase Client
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // --- State Variables ---
+    let currentMonth = new Date().getMonth();
+    let currentYear = new Date().getFullYear();
+    let eventsData = []; // Cache for all fetched events
+
+    // --- DOM Elements ---
+    const calendarGrid = document.getElementById('calendar-grid');
+    const monthYearDisplay = document.getElementById('current-month-year');
+    const prevMonthBtn = document.getElementById('prev-month');
+    const nextMonthBtn = document.getElementById('next-month');
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const body = document.body;
+    const modal = document.getElementById('event-modal');
+    const closeButton = document.querySelector('.close-button');
+    const eventDateInput = document.getElementById('event-date');
+    const eventTitleInput = document.getElementById('event-title');
+    const saveEventBtn = document.getElementById('save-event-button');
+    const eventsListEl = document.getElementById('events-list');
+    const addTodayBtn = document.getElementById('add-today');
+    const openModalBtn = document.getElementById('open-modal');
+    let modalIsVisible = false;
+
+    // --- Event Handlers ---
+    prevMonthBtn.addEventListener('click', () => changeMonth(-1));
+    nextMonthBtn.addEventListener('click', () => changeMonth(1));
+    themeToggleBtn.addEventListener('click', toggleTheme);
+    closeButton.addEventListener('click', () => toggleModal(false));
+    saveEventBtn.addEventListener('click', saveEvent);
+
+    addTodayBtn.addEventListener('click', () => {
+      const today = new Date().toISOString().split('T')[0];
+      toggleModal(true, today);
+    });
+    openModalBtn.addEventListener('click', () => toggleModal(true));
+
+    // Close modal when clicking outside
+    window.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            toggleModal(false);
         }
-    </script>
-    <script src="app.js"></script>
+    });
+
+    // --- Supabase Functions ---
+
+    // 🚨 WARNING: In a production app, this must be replaced by a proper sign-in flow.
+    // This uses a fixed ID ('anon_user') to demonstrate persistence.
+    const USER_ID = 'anon_user_12345'; 
+
+    async function fetchEvents() {
+        // 1. Define the start and end of the current viewing month for filtering
+        const startOfMonth = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0];
+        // Get the last day of the month by going to the 0th day of the next month
+        const endOfMonth = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0];
+        
+        // 2. Query Supabase for events in the current month for the current user
+        const { data, error } = await supabase
+            .from('calendar_events')
+            .select('id, title, date')
+            .eq('user_id', USER_ID) 
+            .gte('date', startOfMonth)
+            .lte('date', endOfMonth);
+
+        if (error) {
+            console.error('Error fetching events. Check your API keys and table name:', error);
+            // Fallback to empty array if fetch fails
+            eventsData = []; 
+        } else {
+            eventsData = data || [];
+        }
+        // Always re-render after fetching data
+        renderCalendar();
+        renderEventsList();
+    }
+
+    async function saveEvent() {
+        const title = eventTitleInput.value.trim();
+        const date = eventDateInput.value;
+
+        if (!title || !date) {
+            // Use a simple console message instead of alert()
+            console.warn('Event title and date are required.');
+            return;
+        }
+
+        const { error } = await supabase
+            .from('calendar_events')
+            .insert([
+                { title: title, date: date, user_id: USER_ID }
+            ]);
+
+        if (error) {
+            console.error('Failed to save event:', error);
+        } else {
+            // Success: Close modal, clear inputs, and refresh data
+            toggleModal(false);
+            eventTitleInput.value = '';
+            fetchEvents(); 
+        }
+    }
+
+    // --- UI Logic Functions ---
+
+    function toggleModal(show, dateString = null) {
+        if (show) {
+            eventDateInput.value = dateString || new Date().toISOString().split('T')[0];
+            eventTitleInput.value = '';
+            modal.style.display = 'flex';
+            modalIsVisible = true;
+            // focus
+            setTimeout(()=> eventTitleInput.focus(),80);
+        } else {
+            modal.style.display = 'none';
+            modalIsVisible = false;
+        }
+    }
+
+    function toggleTheme() {
+        const isDark = body.classList.toggle('dark-mode');
+        // Save preference to Local Storage
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        themeToggleBtn.textContent = isDark ? ' 🌙' : ' ☀️';
+    }
+
+    function loadTheme() {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            body.classList.add('dark-mode');
+            themeToggleBtn.textContent = ' 🌙';
+        } else {
+            body.classList.remove('dark-mode');
+            themeToggleBtn.textContent = ' ☀️';
+        }
+    }
+
+    function renderCalendar() {
+        calendarGrid.innerHTML = ''; // Clear previous grid
+        
+        const today = new Date();
+        const date = new Date(currentYear, currentMonth, 1);
+        const lastDay = new Date(currentYear, currentMonth + 1, 0);
+        const prevLastDay = new Date(currentYear, currentMonth, 0);
+        const lastDayIndex = lastDay.getDay();
+        const nextDays = (7 - lastDayIndex - 1) % 7; // Ensure we fill a full grid line
+
+        // Display current month and year
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        monthYearDisplay.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+        // Previous Month's Days
+        for (let x = date.getDay(); x > 0; x--) {
+            const dayCell = document.createElement('div');
+            dayCell.classList.add('day-cell', 'prev-next-month');
+            
+            const dayNumber = document.createElement('span');
+            dayNumber.classList.add('day-number');
+            dayNumber.textContent = prevLastDay.getDate() - x + 1;
+            dayCell.appendChild(dayNumber);
+            
+            calendarGrid.appendChild(dayCell);
+        }
+
+        // Current Month's Days
+        for (let i = 1; i <= lastDay.getDate(); i++) {
+            const dayCell = document.createElement('div');
+            dayCell.classList.add('day-cell');
+            
+            const dateString = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+
+            // Day Number Span
+            const dayNumber = document.createElement('span');
+            dayNumber.classList.add('day-number');
+            dayNumber.textContent = i;
+            
+            // Highlight Current Day (The blue/red circle)
+            if (i === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear()) {
+                dayNumber.classList.add('current-day-circle');
+            }
+
+            // Add Event Marker if event exists for this day
+            const hasEvent = eventsData.some(event => {
+                // Compare only the YYYY-MM-DD part
+                return event.date === dateString; 
+            });
+            
+            dayCell.appendChild(dayNumber);
+
+            if (hasEvent) {
+                const eventMarker = document.createElement('div');
+                eventMarker.classList.add('event-marker');
+                dayCell.appendChild(eventMarker);
+            }
+
+            // Event listener to open modal and set date
+            dayCell.addEventListener('click', () => toggleModal(true, dateString));
+            
+            calendarGrid.appendChild(dayCell);
+        }
+
+        // Next Month's Days
+        for (let j = 1; j <= nextDays; j++) {
+            const dayCell = document.createElement('div');
+            dayCell.classList.add('day-cell', 'prev-next-month');
+            
+            const dayNumber = document.createElement('span');
+            dayNumber.classList.add('day-number');
+            dayNumber.textContent = j;
+            dayCell.appendChild(dayNumber);
+            
+            calendarGrid.appendChild(dayCell);
+        }
+    }
+
+    function changeMonth(direction) {
+        currentMonth += direction;
+        if (currentMonth < 0) {
+            currentMonth = 11;
+            currentYear--;
+        } else if (currentMonth > 11) {
+            currentMonth = 0;
+            currentYear++;
+        }
+        // Fetch new events for the new month, which calls renderCalendar()
+        fetchEvents();
+    }
+
+    // --- Extra: render events list in the sidebar ---
+    function renderEventsList(){
+      eventsListEl.innerHTML = '';
+      if (!eventsData || eventsData.length === 0){
+        const empty = document.createElement('div');
+        empty.style.color = 'var(--muted)';
+        empty.textContent = 'No events this month.';
+        eventsListEl.appendChild(empty);
+        return;
+      }
+      // sort by date
+      const sorted = [...eventsData].sort((a,b)=> a.date.localeCompare(b.date));
+      sorted.forEach(ev=>{
+        const item = document.createElement('div');
+        item.className = 'event-item';
+        const left = document.createElement('div');
+        left.textContent = ev.title;
+        const right = document.createElement('div');
+        right.className = 'event-date-sm';
+        right.textContent = ev.date;
+        item.appendChild(left);
+        item.appendChild(right);
+        // click to open that date in modal
+        item.addEventListener('click', ()=> toggleModal(true, ev.date));
+        eventsListEl.appendChild(item);
+      });
+    }
+
+    // --- Initialization ---
+
+    function init() {
+        loadTheme();
+        // Start by fetching data for the current month
+        fetchEvents(); 
+    }
+
+    init();
+
+    // Simple sign-in check
+    async function signInAnon() {
+        console.log("Supabase initialized. Data is stored under fixed user ID: " + USER_ID);
+    }
+
+    signInAnon();
+    // === END user-provided app.js ===
+  </script>
 </body>
 </html>
